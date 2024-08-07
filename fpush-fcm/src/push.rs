@@ -7,8 +7,7 @@ use google_fcm1::{
     api::{Message, SendMessageRequest},
     oauth2, FirebaseCloudMessaging,
 };
-use log::{error, warn};
-
+use log::{debug, error, info, warn};
 use serde::Deserialize;
 
 use crate::config::GoogleFcmConfig;
@@ -116,7 +115,10 @@ impl PushTrait for FpushFcm {
                     Err(PushError::PushEndpointTmp)
                 }
             }
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                info!("FCM: Successfully sent push notification ");
+                Ok(())
+            }
         }
     }
 }

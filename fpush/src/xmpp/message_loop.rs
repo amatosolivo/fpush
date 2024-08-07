@@ -83,7 +83,7 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
     // parse message
     match Iq::try_from(stanza) {
         Err(e) => {
-            debug!("Could not parse stanza: {}", e);
+            warn!("Could not parse stanza: {}", e);
         }
         Ok(iq) => {
             let (to, from, iq_payload) = match (iq.to, iq.from, iq.payload) {
@@ -123,7 +123,7 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
                     return;
                 }
             };
-            debug!(
+            warn!(
                 "Selected push_module {} for JID {} with token {}",
                 module_id, from, token
             );
@@ -144,9 +144,19 @@ async fn handle_push_result(
     iq_id: String,
 ) {
     match push_result {
-        Ok(()) => send_ack_iq(conn, &iq_id, from, to).await,
+        Ok(()) => {
+            info!(
+                "{}: Successfully sent push notification for token {} from {}",
+                module_id, token, from
+            );
+            send_ack_iq(conn, &iq_id, from, to).await
+        },
         Err(PushRequestError::TokenRatelimited) => {
-            // Some admins did not understood the wait_iq -> we know send an ack
+            warn!(
+                "{}: Push request rate-limited for token {} from {}",
+                module_id, token, from
+            );
+            // Some admins did not understood the wait_iq -> we now send an ack
             send_ack_iq(conn, &iq_id, from, to).await
         }
         Err(PushRequestError::TokenBlocked) => {

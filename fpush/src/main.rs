@@ -37,7 +37,7 @@ async fn main() {
 
     loop {
         info!(
-            "Opening connection to {}",
+            "Attempting to open connection to {}",
             settings.component().server_hostname()
         );
         // open component connection
@@ -51,6 +51,10 @@ async fn main() {
                 tokio::time::sleep(*settings.timeout().xmppconnection_error()).await;
             }
             Ok(component) => {
+                info!(
+                    "Successfully connected to XMPP server: {}",
+                    settings.component().server_hostname()
+                );
                 // open new messageLoop
                 crate::xmpp::message_loop_main_thread(component, push_impl.clone()).await;
             }

@@ -1,5 +1,5 @@
 ### alternative tag is e.g. '1.72.0'
-ARG RUST_VSN='stable'
+ARG RUST_VSN='1.72.0'
 
 ##### Build
 FROM docker.io/clux/muslrust:${RUST_VSN} as builder

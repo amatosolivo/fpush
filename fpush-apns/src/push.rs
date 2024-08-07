@@ -8,7 +8,7 @@ use a2::{
 use fpush_traits::push::{PushError, PushResult, PushTrait};
 
 use async_trait::async_trait;
-use log::{debug, error};
+use log::{debug, error, info, warn};
 use serde_json::Value;
 
 use crate::AppleApnsConfig;
@@ -80,14 +80,13 @@ impl PushTrait for FpushApns {
                 }
             }
         }
-        log::debug!(
+       info!(
             "Payload send to apple: {}",
             payload.clone().to_json_string().unwrap()
         );
         match self.apns.send(payload).await {
             Ok(response) => {
-                debug!(
-                    "Got response {} from apple for token {}",
+                info!("Got response {} from apple for token {}",
                     response.code, token
                 );
                 response_code_to_push_error(response.code)
@@ -105,14 +104,38 @@ impl PushTrait for FpushApns {
 
 fn response_code_to_push_error(response_code: u16) -> PushResult<()> {
     match response_code {
-        200 => Ok(()),
-        400 => Err(PushError::PushEndpointPersistent),
-        403 => Err(PushError::PushEndpointPersistent),
-        405 => Err(PushError::PushEndpointPersistent),
-        410 => Err(PushError::TokenBlocked),
-        429 => Err(PushError::TokenRateLimited),
-        500 => Err(PushError::PushEndpointTmp),
-        503 => Err(PushError::PushEndpointTmp),
+        200 => {
+            info!("Successfully sent APNS notification");
+            Ok(())
+        },
+        400 => {
+            warn!("Bad request error from APNS");
+            Err(PushError::PushEndpointPersistent)
+        },
+        403 => {
+            warn!("Authentication error with APNS");
+            Err(PushError::PushEndpointPersistent)
+        },
+        405 => {
+            warn!("Method not allowed error from APNS");
+            Err(PushError::PushEndpointPersistent)
+        },
+        410 => {
+            warn!("Token is no longer valid");
+            Err(PushError::TokenBlocked)
+        },
+        429 => {
+            warn!("Too many requests to APNS");
+            Err(PushError::TokenRateLimited)
+        },
+        500 => {
+            warn!("Internal server error from APNS");
+            Err(PushError::PushEndpointTmp)
+        },
+        503 => {
+            warn!("APNS service is unavailable");
+            Err(PushError::PushEndpointTmp)
+        },
         ecode => {
             error!("Received unhandled error code from apple apns: {}", ecode);
             Err(PushError::Unknown(ecode))
