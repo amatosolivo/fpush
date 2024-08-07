@@ -49,6 +49,7 @@ pub(crate) async fn message_loop_main_thread(
             xmpp_poll = conn.next() => {
                 match xmpp_poll {
                     Some(stanza) => {
+                        info!("Received XMPP stanza: {:?}", stanza); 
                         dispatch_xmpp_msg_to_thread(&out_sender, push_modules.clone(), stanza);
                     },
                     None => {
@@ -80,6 +81,7 @@ fn dispatch_xmpp_msg_to_thread(
 
 #[inline(always)]
 async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: Element) {
+     
     // parse message
     match Iq::try_from(stanza) {
         Err(e) => {
@@ -185,6 +187,7 @@ async fn handle_push_result(
 
 #[inline(always)]
 fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
+    info!("Parsing token and module ID from payload: {:?}", iq_payload);
     if let Ok(pubsub) = PubSub::try_from(iq_payload) {
         match pubsub {
             PubSub::Publish {
