@@ -226,10 +226,10 @@ fn format_xml(xml: &str, indent: usize) -> String {
 #[inline(always)]
 fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
       // Convertir el Element a una cadena XML
-      let xml_string = String::from(&iq_payload);
+      // let xml_string = String::from(&iq_payload);
     
       // Formatear e imprimir el XML usando info!
-      info!("\nIQ Payload XML:\n{}\n\n\n", format_xml(&xml_string, 2));
+      // info!("\nIQ Payload XML:\n{}\n\n\n", format_xml(&xml_string, 2));
       
       match PubSub::try_from(iq_payload.clone()) {
         Ok(pubsub) => match pubsub {
