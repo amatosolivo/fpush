@@ -49,7 +49,7 @@ pub(crate) async fn message_loop_main_thread(
             xmpp_poll = conn.next() => {
                 match xmpp_poll {
                     Some(stanza) => {
-                        info!("Received XMPP stanza: {:?}", stanza); 
+                        info!("Received XMPP stanza"); 
                         dispatch_xmpp_msg_to_thread(&out_sender, push_modules.clone(), stanza);
                     },
                     None => {
@@ -185,11 +185,54 @@ async fn handle_push_result(
     }
 }
 
+fn format_xml(xml: &str, indent: usize) -> String {
+    let mut formatted = String::new();
+    let mut depth = 0;
+    let mut in_tag = false;
+
+    for c in xml.chars() {
+        match c {
+            '<' => {
+                if !in_tag {
+                    formatted.push('\n');
+                    formatted.push_str(&" ".repeat(depth * indent));
+                }
+                formatted.push(c);
+                in_tag = true;
+            }
+            '>' => {
+                formatted.push(c);
+                in_tag = false;
+                if xml.chars().nth(formatted.len()).map_or(false, |next| next == '<') {
+                    depth += 1;
+                }
+            }
+            '/' => {
+                if in_tag && formatted.chars().last() == Some('<') {
+                    depth = depth.saturating_sub(1);
+                    formatted.pop();
+                    formatted.push('\n');
+                    formatted.push_str(&" ".repeat(depth * indent));
+                    formatted.push('<');
+                }
+                formatted.push(c);
+            }
+            _ => formatted.push(c),
+        }
+    }
+    formatted
+}
+
 #[inline(always)]
 fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
-    info!("Parsing token and module ID from payload: {:?}", iq_payload);
-    if let Ok(pubsub) = PubSub::try_from(iq_payload) {
-        match pubsub {
+      // Convertir el Element a una cadena XML
+      let xml_string = String::from(&iq_payload);
+    
+      // Formatear e imprimir el XML usando info!
+      info!("\nIQ Payload XML:\n{}\n\n\n", format_xml(&xml_string, 2));
+      
+      match PubSub::try_from(iq_payload.clone()) {
+        Ok(pubsub) => match pubsub {
             PubSub::Publish {
                 publish: pubsub_payload,
                 publish_options: None,
@@ -218,8 +261,11 @@ fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
                 Ok(("default".to_string(), pubsub_payload.node.0))
             }
             _ => Err(Error::PubSubNonPublish),
+        },
+        Err(e) => {
+            error!("Failed to parse PubSub from payload: {:?}", e);
+            error!("Payload content: {}", String::from(&iq_payload));
+            Err(Error::PubSubInvalidFormat)
         }
-    } else {
-        Err(Error::PubSubInvalidFormat)
     }
 }
