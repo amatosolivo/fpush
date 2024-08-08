@@ -82,10 +82,13 @@ fn dispatch_xmpp_msg_to_thread(
 #[inline(always)]
 async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: Element) {
      
+  
     // parse message
+    let stanza_clone = stanza.clone();
     match Iq::try_from(stanza) {
         Err(e) => {
             warn!("Could not parse stanza: {}", e);
+            warn!("\nIQ XML:\n{}\n\n\n", String::from(&stanza_clone));
         }
         Ok(iq) => {
             let (to, from, iq_payload) = match (iq.to, iq.from, iq.payload) {

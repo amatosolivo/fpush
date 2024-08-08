@@ -442,7 +442,7 @@ dependencies = [
  "tokio",
  "tokio-xmpp",
  "xmpp",
- "xmpp-parsers",
+ "xmpp-parsers 0.20.0",
 ]
 
 [[package]]
@@ -2160,7 +2160,7 @@ dependencies = [
  "tokio-native-tls",
  "tokio-stream",
  "tokio-util",
- "xmpp-parsers",
+ "xmpp-parsers 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2540,7 +2540,24 @@ dependencies = [
 [[package]]
 name = "xmpp-parsers"
 version = "0.20.0"
-source = "git+https://gitlab.com/xmpp-rs/xmpp-rs.git#2f47bdb1d3002d8dbc72300911bd786a96c53e4f"
+dependencies = [
+ "base64 0.21.5",
+ "blake2",
+ "chrono",
+ "digest",
+ "jid",
+ "minidom",
+ "rustc_version",
+ "sha1",
+ "sha2",
+ "sha3",
+]
+
+[[package]]
+name = "xmpp-parsers"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0905d294e6e7f7668f4b3ca9c4a6343fd85355d21c44d2f1c8b1c027394048e"
 dependencies = [
  "base64 0.21.5",
  "blake2",

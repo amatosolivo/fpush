@@ -29,7 +29,7 @@ derive_more = "^0.99"
 
 xmpp = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git", default-features = false }
 tokio-xmpp = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git", default-features = false }
-xmpp-parsers = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git", features = ["component"] }
+xmpp-parsers = { path = "../xmpp-parsers", features = ["component"]  }
 
 fpush-push = { path = "../fpush-push" }
 

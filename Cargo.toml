@@ -8,6 +8,7 @@ members = [
     "fpush-traits",
     "fpush-tokenblocker",
     "fpush-demopush",
+    "xmpp-parsers",
 ]
 
 resolver = "2"
@@ -16,5 +17,4 @@ resolver = "2"
 jid = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git" }
 minidom = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git" }
 tokio-xmpp = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git" }
-xmpp-parsers = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git" }
 xmpp = { git = "https://gitlab.com/xmpp-rs/xmpp-rs.git" }
