@@ -11,6 +11,9 @@ pub enum Error {
     PubSubInvalidFormat,
     PubSubToManyPublishOptions,
     PubSubInvalidPushModuleConfiguration,
+    InvalidPubSubType,
+    InvalidNotificationString,
+    InvalidNotificationFormat,
 }
 
 impl std::convert::From<tokio_xmpp::Error> for Error {

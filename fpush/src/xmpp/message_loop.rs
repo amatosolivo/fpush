@@ -1,5 +1,7 @@
 use crate::config::fpush_config::FpushConfig;
 use crate::xmpp::error_messages::send_wait_iq_reason_old_prosody;
+use crate::xmpp::notification::Notificacion;
+
 use crate::{
     error::{Error, Result},
     xmpp::error_messages::{send_ack_iq, send_error_iq, send_error_policy_iq},
@@ -7,10 +9,11 @@ use crate::{
 use fpush_push::{FpushPushArc, PushRequestError, PushRequestResult};
 
 use futures::{SinkExt, StreamExt};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 
 use tokio::sync::mpsc;
 use tokio_xmpp::Component;
+// use xmpp::parsers::cert_management::Item;
 use xmpp_parsers::{iq::Iq, pubsub::PubSub, Element, Jid};
 
 pub(crate) async fn init_component_connection(config: &FpushConfig) -> Result<Component> {
@@ -81,14 +84,12 @@ fn dispatch_xmpp_msg_to_thread(
 
 #[inline(always)]
 async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: Element) {
-     
-  
     // parse message
     let stanza_clone = stanza.clone();
     match Iq::try_from(stanza) {
         Err(e) => {
             warn!("Could not parse stanza: {}", e);
-            warn!("\nIQ XML:\n{}\n\n\n", String::from(&stanza_clone));
+            warn!("\nIQ XML:\n{}\n\n\n", String::from(&stanza_clone));            
         }
         Ok(iq) => {
             let (to, from, iq_payload) = match (iq.to, iq.from, iq.payload) {
@@ -117,8 +118,8 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
                     return;
                 }
             };
-            let (module_id, token) = match parse_token_and_module_id(iq_payload) {
-                Ok((module_id, token)) => (module_id, token),
+            let (module_id, notif_json) = match parse_token_and_module_id(iq_payload) {
+                Ok((module_id, notif_json)) => (module_id, notif_json),
                 Err(e) => {
                     warn!(
                         "Could not retrieve token or module_id: {} source: {}",
@@ -128,13 +129,9 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
                     return;
                 }
             };
-            warn!(
-                "Selected push_module {} for JID {} with token {}",
-                module_id, from, token
-            );
             // handle_push_request
-            let push_result = push_modules.push(&module_id, token.clone()).await;
-            handle_push_result(conn, &module_id, &token, &push_result, from, to, iq.id).await
+            let push_result = push_modules.push(&module_id, notif_json.clone()).await;
+            handle_push_result(conn, &module_id, &notif_json, &push_result, from, to, iq.id).await
         }
     }
 }
@@ -226,44 +223,34 @@ fn format_xml(xml: &str, indent: usize) -> String {
     formatted
 }
 
+
 #[inline(always)]
 fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
-      // Convertir el Element a una cadena XML
-      // let xml_string = String::from(&iq_payload);
-    
-      // Formatear e imprimir el XML usando info!
-      // info!("\nIQ Payload XML:\n{}\n\n\n", format_xml(&xml_string, 2));
-      
-      match PubSub::try_from(iq_payload.clone()) {
-        Ok(pubsub) => match pubsub {
-            PubSub::Publish {
-                publish: pubsub_payload,
-                publish_options: None,
-            } => Ok(("default".to_string(), pubsub_payload.node.0)),
-            PubSub::Publish {
-                publish: pubsub_payload,
-                publish_options: Some(publish_options),
-            } => {
-                if let Some(data_forms) = publish_options.form {
-                    if data_forms.fields.len() > 5 {
-                        return Err(Error::PubSubToManyPublishOptions);
-                    }
-                    for field in data_forms.fields {
-                        if field.var == "pushModule" {
-                            if field.values.len() != 1 {
-                                return Err(Error::PubSubInvalidPushModuleConfiguration);
-                            }
-                            if let Some(push_module_id) = field.values.first() {
-                                return Ok((push_module_id.to_string(), pubsub_payload.node.0));
-                            } else {
-                                unreachable!();
-                            }
+    match PubSub::try_from(iq_payload.clone()) {
+        Ok(pubsub) => {
+            let notificacion = Notificacion::from_pubsub(&pubsub).ok();
+            
+            match pubsub {
+                PubSub::Publish {
+                    publish: pubsub_payload,
+                    publish_options,
+                } => {
+                    let module_id = publish_options
+                    .and_then(|options| options.form)
+                    .and_then(|form| {
+                        form.fields.iter()
+                            .find(|field| field.var == "pushModule")
+                            .and_then(|field| field.values.first().cloned())
+                    })
+                    .unwrap_or_else(|| "default".to_string());
+                
+                        match notificacion {
+                            Some(notif) => Ok((module_id, notif.to_string())),
+                            None => Err(Error::InvalidNotificationFormat)
                         }
-                    }
                 }
-                Ok(("default".to_string(), pubsub_payload.node.0))
+                _ => Err(Error::PubSubNonPublish),
             }
-            _ => Err(Error::PubSubNonPublish),
         },
         Err(e) => {
             error!("Failed to parse PubSub from payload: {:?}", e);
@@ -272,3 +259,46 @@ fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
         }
     }
 }
+// #[inline(always)]
+// fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String,Item)> {
+
+//       match PubSub::try_from(iq_payload.clone()) {
+//         Ok(pubsub) => match pubsub {
+//             PubSub::Publish {
+//                 publish: pubsub_payload,
+//                 publish_options: None,
+//             } => Ok(("default".to_string(), pubsub_payload.node.0)),
+//             PubSub::Publish {
+//                 publish: pubsub_payload,
+//                 publish_options: Some(publish_options),
+//             } => {
+//                 if let Some(data_forms) = publish_options.form {
+//                     if data_forms.fields.len() > 5 {
+//                         return Err(Error::PubSubToManyPublishOptions);
+//                     }
+//                     for field in data_forms.fields {
+//                         if field.var == "pushModule" {
+//                             if field.values.len() != 1 {
+//                                 return Err(Error::PubSubInvalidPushModuleConfiguration);
+//                             }
+//                             if let Some(push_module_id) = field.values.first() {
+//                                 //TODO:ERROR AQUI
+//                                 return Ok((push_module_id.to_string(), pubsub_payload.node.0));
+//                             } else {
+//                                 error!("Failed unreachable");
+//                                 unreachable!();
+//                             }
+//                         }
+//                     }
+//                 }
+//                 Ok(("default".to_string(), pubsub_payload.node.0))
+//             }
+//             _ => Err(Error::PubSubNonPublish),
+//         },
+//         Err(e) => {
+//             error!("Failed to parse PubSub from payload: {:?}", e);
+//             error!("Payload content: {}", String::from(&iq_payload));
+//             Err(Error::PubSubInvalidFormat)
+//         }
+//     }
+// }

@@ -63,7 +63,7 @@ pub async fn send_wait_iq_reason_old_prosody(
         xmpp_parsers::stanza_error::ErrorType::Wait,
         xmpp_parsers::stanza_error::DefinedCondition::BadRequest,
         "en",
-        "Invalid push format, update your prosody community modules (debian stable has a bug, use backports instead)",
+        "Invalid push format, add pushModule to enable Push notificaction IQ",
     );
     if let Err(e) = conn
         .send(
