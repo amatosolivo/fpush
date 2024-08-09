@@ -10,6 +10,7 @@ pub enum PushError {
     PushEndpointPersistent,
     TokenRateLimited,
     TokenBlocked,
+    InvalidNotificationJsonStr,
     Unknown(u16),
 }
 

@@ -86,6 +86,7 @@ fn dispatch_xmpp_msg_to_thread(
 async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: Element) {
     // parse message
     let stanza_clone = stanza.clone();
+    warn!("\nIQ XML:\n{}\n\n\n", String::from(&stanza_clone));
     match Iq::try_from(stanza) {
         Err(e) => {
             warn!("Could not parse stanza: {}", e);
@@ -129,6 +130,10 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
                     return;
                 }
             };
+            // warn!(
+            //     "Selected push_module {} for JID {} \n {}",
+            //     module_id, from, notif_json
+            // );
             // handle_push_request
             let push_result = push_modules.push(&module_id, notif_json.clone()).await;
             handle_push_result(conn, &module_id, &notif_json, &push_result, from, to, iq.id).await
@@ -185,45 +190,6 @@ async fn handle_push_result(
     }
 }
 
-fn format_xml(xml: &str, indent: usize) -> String {
-    let mut formatted = String::new();
-    let mut depth = 0;
-    let mut in_tag = false;
-
-    for c in xml.chars() {
-        match c {
-            '<' => {
-                if !in_tag {
-                    formatted.push('\n');
-                    formatted.push_str(&" ".repeat(depth * indent));
-                }
-                formatted.push(c);
-                in_tag = true;
-            }
-            '>' => {
-                formatted.push(c);
-                in_tag = false;
-                if xml.chars().nth(formatted.len()).map_or(false, |next| next == '<') {
-                    depth += 1;
-                }
-            }
-            '/' => {
-                if in_tag && formatted.chars().last() == Some('<') {
-                    depth = depth.saturating_sub(1);
-                    formatted.pop();
-                    formatted.push('\n');
-                    formatted.push_str(&" ".repeat(depth * indent));
-                    formatted.push('<');
-                }
-                formatted.push(c);
-            }
-            _ => formatted.push(c),
-        }
-    }
-    formatted
-}
-
-
 #[inline(always)]
 fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
     match PubSub::try_from(iq_payload.clone()) {
@@ -259,46 +225,3 @@ fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
         }
     }
 }
-// #[inline(always)]
-// fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String,Item)> {
-
-//       match PubSub::try_from(iq_payload.clone()) {
-//         Ok(pubsub) => match pubsub {
-//             PubSub::Publish {
-//                 publish: pubsub_payload,
-//                 publish_options: None,
-//             } => Ok(("default".to_string(), pubsub_payload.node.0)),
-//             PubSub::Publish {
-//                 publish: pubsub_payload,
-//                 publish_options: Some(publish_options),
-//             } => {
-//                 if let Some(data_forms) = publish_options.form {
-//                     if data_forms.fields.len() > 5 {
-//                         return Err(Error::PubSubToManyPublishOptions);
-//                     }
-//                     for field in data_forms.fields {
-//                         if field.var == "pushModule" {
-//                             if field.values.len() != 1 {
-//                                 return Err(Error::PubSubInvalidPushModuleConfiguration);
-//                             }
-//                             if let Some(push_module_id) = field.values.first() {
-//                                 //TODO:ERROR AQUI
-//                                 return Ok((push_module_id.to_string(), pubsub_payload.node.0));
-//                             } else {
-//                                 error!("Failed unreachable");
-//                                 unreachable!();
-//                             }
-//                         }
-//                     }
-//                 }
-//                 Ok(("default".to_string(), pubsub_payload.node.0))
-//             }
-//             _ => Err(Error::PubSubNonPublish),
-//         },
-//         Err(e) => {
-//             error!("Failed to parse PubSub from payload: {:?}", e);
-//             error!("Payload content: {}", String::from(&iq_payload));
-//             Err(Error::PubSubInvalidFormat)
-//         }
-//     }
-// }

@@ -54,14 +54,32 @@ impl FpushApns {
 #[async_trait]
 impl PushTrait for FpushApns {
     #[inline(always)]
-    async fn send(&self, token: String) -> PushResult<()> {
-        let notification_builder = DefaultNotificationBuilder::new()
-            .set_title("New Message")
-            .set_body("New Message?")
+    async fn send(&self, notif_json: String) -> PushResult<()> {
+
+        let notif: Value = match serde_json::from_str(&notif_json) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Error deserializing notification JSON: {}", e);
+                return  Err(PushError::Unknown(2));
+            }
+        };
+        
+        let token = notif["token"].as_str().ok_or(PushError::Unknown(1))?;
+        let message_count = notif["message_count"].as_u64().unwrap_or(1);
+        let last_message_sender = notif["last_message_sender"].as_str().unwrap_or("Someone");
+        let last_message_body = notif["last_message_body"].as_str().unwrap_or("New message");
+    
+        let title = format!("{} new message(s)", message_count);
+        let body = format!("{}: {}", last_message_sender, last_message_body);
+    
+        let mut notification_builder = DefaultNotificationBuilder::new()
+            .set_title(&title)
+            .set_body(&body)
             .set_mutable_content()
             .set_sound("default");
+
         let mut payload = notification_builder.build(
-            &token,
+            token,
             NotificationOptions {
                 apns_priority: Some(Priority::High),
                 apns_topic: Some(&self.topic),

@@ -9,6 +9,7 @@ use google_fcm1::{
 };
 use log::{debug, error, info, warn};
 use serde::Deserialize;
+use serde_json::Value;
 
 use crate::config::GoogleFcmConfig;
 pub struct FpushFcm {
@@ -124,10 +125,40 @@ impl PushTrait for FpushFcm {
 }
 
 #[inline(always)]
-fn create_push_message(token: String) -> Message {
+fn create_push_message(notif_json: String) -> Message {
+    
+    let notif: Value = match serde_json::from_str(&notif_json) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error deserializing notification JSON: {}", e);
+            return Message::default();
+        }
+    };
+
+    let mut data = HashMap::new();
+    let mut token = None;
+
+    if let Some(obj) = notif.as_object() {
+        for (key, value) in obj {
+            if key == "token" {
+                if let Some(t) = value.as_str() {
+                    token = Some(t.to_string());
+                }
+            } else {
+                let value_str = match value {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    _ => value.to_string(),
+                };
+                data.insert(key.clone(), value_str);
+            }
+        }
+    }
+
     Message {
-        data: Some(HashMap::new()),
-        token: Some(token),
+        data: Some(data),
+        token: token,
         ..Default::default()
     }
 }
