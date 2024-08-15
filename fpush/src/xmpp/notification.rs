@@ -16,6 +16,10 @@ pub struct Notificacion {
     last_message_body: String,
     additional_data: Option<String>,
     token: String,
+    propousedid: Option<String>,
+    media: Option<String>,    
+    ntype: Option<String>,
+    moduleid: Option<String>,
 }
 
 impl Notificacion {
@@ -25,6 +29,10 @@ impl Notificacion {
         last_message_body: String,
         additional_data: Option<String>,
         token: String,
+        propousedid: Option<String>,
+        media: Option<String>,    
+        ntype: Option<String>,    
+        moduleid: Option<String>,
     ) -> Self {
         Notificacion {
             message_count,
@@ -32,12 +40,16 @@ impl Notificacion {
             last_message_body,
             additional_data,
             token,
+            propousedid,
+            media,
+            ntype,
+            moduleid,
         }
     }
 
     pub fn from_pubsub(pubsub: &PubSub) -> Result<Self, Error> {
         match pubsub {
-            PubSub::Publish { publish, publish_options: _ } => {
+            PubSub::Publish { publish, publish_options } => {
                 let token = publish.node.0.clone();
 
                 
@@ -49,7 +61,7 @@ impl Notificacion {
                             
                             let mut message_count = 0;
                             let mut last_message_sender = String::new();
-                            let mut last_message_body = String::new();
+                            let mut last_message_body = String::new();                            
                             
                             for field in data_form.fields {
                                 match field.var.as_str() {
@@ -70,12 +82,43 @@ impl Notificacion {
                                 .get_child("additional", "http://example.com/custom")//TODO: verificar que namespace va aqui 
                                 .map(|elem| elem.text());
                             
+                            let extract_field = |field_name: &str| -> Option<String> {
+                                publish_options
+                                    .as_ref()
+                                    .and_then(|options| options.form.as_ref())
+                                    .and_then(|form| {
+                                        form.fields.iter()
+                                            .find(|field| field.var == field_name)
+                                            .and_then(|field| field.values.first().cloned())
+                                    })
+                                    .filter(|value| !value.is_empty())
+                            };
+                    
+                            let module_id = extract_field("pushModule");
+                            let notification_type = extract_field("notification-type");
+                            let propose_id = extract_field("propose-id");
+                            let propose_media = extract_field("propose-media");
+                            
+                            if notification_type.is_none() || module_id.is_none() {
+                                return Err(Error::InvalidNotificationFormat);
+                            }
+
+                            if notification_type.as_deref() == Some("call") {
+                                if propose_id.is_none() || propose_media.is_none() {
+                                    return Err(Error::InvalidNotificationFormat);
+                                }
+                            }
+
                             return Ok(Notificacion::new(
                                 message_count,
                                 last_message_sender,
                                 last_message_body,
                                 additional_data,
                                 token,
+                                propose_id,
+                                propose_media,
+                                notification_type,
+                                module_id,
                             ));
                         }
                     }
@@ -84,6 +127,10 @@ impl Notificacion {
             },
             _ => Err(Error::InvalidPubSubType),
         }
+    }
+
+    pub fn get_moduleid(&self) -> Option<&String> {
+        self.moduleid.as_ref()
     }
 
     pub fn to_string(&self) -> String {

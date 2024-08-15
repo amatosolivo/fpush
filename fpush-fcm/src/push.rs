@@ -87,9 +87,9 @@ enum FcmErrorCode {
 #[async_trait]
 impl PushTrait for FpushFcm {
     #[inline(always)]
-    async fn send(&self, token: String) -> PushResult<()> {
+    async fn send(&self, notif_json: String) -> PushResult<()> {
         let req = SendMessageRequest {
-            message: Some(create_push_message(token)),
+            message: Some(create_push_message(notif_json)),
             validate_only: None,
         };
 

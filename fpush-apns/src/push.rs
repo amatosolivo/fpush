@@ -9,7 +9,7 @@ use fpush_traits::push::{PushError, PushResult, PushTrait};
 
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
-use serde_json::Value;
+use serde_json::{Value, json, to_value};
 
 use crate::AppleApnsConfig;
 pub struct FpushApns {
@@ -67,16 +67,35 @@ impl PushTrait for FpushApns {
         let token = notif["token"].as_str().ok_or(PushError::Unknown(1))?;
         let message_count = notif["message_count"].as_u64().unwrap_or(1);
         let last_message_sender = notif["last_message_sender"].as_str().unwrap_or("Someone");
-        let last_message_body = notif["last_message_body"].as_str().unwrap_or("New message");
-    
-        let title = format!("{} new message(s)", message_count);
-        let body = format!("{}: {}", last_message_sender, last_message_body);
-    
+        let last_message_body = notif["last_message_body"].as_str().unwrap_or("New message");        
+        
+        let notification_type = notif["ntype"].as_str().unwrap_or("New message");
+        let propose_id = notif["propousedid"].as_str().unwrap_or("New message");
+        let propose_media = notif["media"].as_str().unwrap_or("New message");
+        
+        let (title, body) = if notification_type == "call" {
+            (
+                format!("{} is making a {} call", last_message_sender, propose_media),
+                format!("Incoming {} call", propose_media)
+            )
+        } else {
+            (
+                format!("{} new message(s)", message_count),
+                format!("{}: {}", last_message_sender, last_message_body)
+            )
+        };
+            
         let mut notification_builder = DefaultNotificationBuilder::new()
             .set_title(&title)
             .set_body(&body)
             .set_mutable_content()
             .set_sound("default");
+
+        let apns_push_type = if notification_type == "call" {
+            PushType::Voip
+        } else {
+            PushType::Alert
+        };
 
         let mut payload = notification_builder.build(
             token,
@@ -85,11 +104,34 @@ impl PushTrait for FpushApns {
                 apns_topic: Some(&self.topic),
                 apns_expiration: Some(
                     SystemTime::now().elapsed().unwrap().as_secs() + 4 * 7 * 24 * 3600,
-                ),
-                apns_push_type: PushType::Alert,
+                ),                
+                apns_push_type,
                 ..Default::default()
             },
         );
+
+       
+
+        if notification_type == "call" {
+            if let Some(obj) = notif.as_object() {
+                for (key, value) in obj {
+                    if key == "propousedid" || key == "media"{                   
+                        payload.add_custom_data(key, value).unwrap();                    
+                    }
+                }
+            }
+            // payload.add_custom_data("propose_id", notif.pointer("propousedid").unwrap())
+            //     .map_err(|e| {
+            //         error!("Error adding propose_id to payload: {}", e);
+            //         PushError::Unknown(3)
+            //     })?;
+            // payload.add_custom_data("propose_media",notif.pointer("media").unwrap())
+            //     .map_err(|e| {
+            //         error!("Error adding propose_media to payload: {}", e);
+            //         PushError::Unknown(3)
+            //     })?;
+        }
+        
         match &self.additional_data {
             None => {}
             Some(additional_data) => {

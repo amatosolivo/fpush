@@ -86,7 +86,7 @@ fn dispatch_xmpp_msg_to_thread(
 async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: Element) {
     // parse message
     let stanza_clone = stanza.clone();
-    warn!("\nIQ XML:\n{}\n\n\n", String::from(&stanza_clone));
+
     match Iq::try_from(stanza) {
         Err(e) => {
             warn!("Could not parse stanza: {}", e);
@@ -130,11 +130,8 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
                     return;
                 }
             };
-            // warn!(
-            //     "Selected push_module {} for JID {} \n {}",
-            //     module_id, from, notif_json
-            // );
-            // handle_push_request
+            warn!("\n TC3 Message: {} \n", String::from(&stanza_clone));
+            
             let push_result = push_modules.push(&module_id, notif_json.clone()).await;
             handle_push_result(conn, &module_id, &notif_json, &push_result, from, to, iq.id).await
         }
@@ -194,28 +191,17 @@ async fn handle_push_result(
 fn parse_token_and_module_id(iq_payload: Element) -> Result<(String, String)> {
     match PubSub::try_from(iq_payload.clone()) {
         Ok(pubsub) => {
-            let notificacion = Notificacion::from_pubsub(&pubsub).ok();
-            
-            match pubsub {
-                PubSub::Publish {
-                    publish: pubsub_payload,
-                    publish_options,
-                } => {
-                    let module_id = publish_options
-                    .and_then(|options| options.form)
-                    .and_then(|form| {
-                        form.fields.iter()
-                            .find(|field| field.var == "pushModule")
-                            .and_then(|field| field.values.first().cloned())
-                    })
+            match Notificacion::from_pubsub(&pubsub) {
+                Ok(notif) => {
+                    let module_id = notif.get_moduleid()
+                    .cloned()
                     .unwrap_or_else(|| "default".to_string());
-                
-                        match notificacion {
-                            Some(notif) => Ok((module_id, notif.to_string())),
-                            None => Err(Error::InvalidNotificationFormat)
-                        }
+                    Ok((module_id, notif.to_string()))
+                },
+                Err(e) => {
+                    error!("Failed to create Notificacion from PubSub: {:?}", e);
+                    Err(Error::InvalidNotificationFormat)
                 }
-                _ => Err(Error::PubSubNonPublish),
             }
         },
         Err(e) => {
