@@ -96,12 +96,30 @@ impl PushTrait for FpushApns {
         } else {
             PushType::Alert
         };
+        
+        let tokens: Vec<&str> = token.split("@@@").collect(); // Dividiendo la cadena
+
+        if tokens.len() < 2 {
+            return  Err(PushError::Unknown(5));    
+        }
+
+        let device_token = if notification_type == "call" {
+            tokens[0] // Llamada
+        } else {
+            tokens[1] // Mensaje
+        };
+
+        let topic = if notification_type == "call" {
+            format!("{}.void", self.topic)
+        } else {
+            self.topic.to_string()
+        };
 
         let mut payload = notification_builder.build(
-            token,
+            device_token,
             NotificationOptions {
                 apns_priority: Some(Priority::High),
-                apns_topic: Some(&self.topic),
+                apns_topic: Some(&topic),
                 apns_expiration: Some(
                     SystemTime::now().elapsed().unwrap().as_secs() + 4 * 7 * 24 * 3600,
                 ),                
@@ -109,8 +127,6 @@ impl PushTrait for FpushApns {
                 ..Default::default()
             },
         );
-
-       
 
         if notification_type == "call" {
             if let Some(obj) = notif.as_object() {
@@ -120,16 +136,6 @@ impl PushTrait for FpushApns {
                     }
                 }
             }
-            // payload.add_custom_data("propose_id", notif.pointer("propousedid").unwrap())
-            //     .map_err(|e| {
-            //         error!("Error adding propose_id to payload: {}", e);
-            //         PushError::Unknown(3)
-            //     })?;
-            // payload.add_custom_data("propose_media",notif.pointer("media").unwrap())
-            //     .map_err(|e| {
-            //         error!("Error adding propose_media to payload: {}", e);
-            //         PushError::Unknown(3)
-            //     })?;
         }
         
         match &self.additional_data {

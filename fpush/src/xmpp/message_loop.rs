@@ -102,6 +102,7 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
                         info!("Received ping from {}", from);
                         send_ack_iq(conn, &iq.id, from, to).await;
                     } else {
+                        info!("Error IQ from {}", from);
                         send_error_iq(conn, &iq.id, from, to).await;
                     }
                     return;
@@ -116,6 +117,7 @@ async fn handle_iq(conn: &mpsc::Sender<Iq>, push_modules: FpushPushArc, stanza: 
                     return;
                 }
                 (_, _, _) => {
+                    info!("Error Vaina rara");
                     return;
                 }
             };
@@ -171,10 +173,10 @@ async fn handle_push_result(
             send_error_policy_iq(conn, &iq_id, from, to).await;
         }
         Err(PushRequestError::Internal) => {
-            warn!(
-                "{}: Incountered internal push error for token {} from {}",
-                module_id, token, from
-            );
+            // warn!(
+            //     "{}: Incountered internal push error for token {} from {}",
+            //     module_id, token, from
+            // );
             send_error_iq(conn, &iq_id, from, to).await;
         }
         Err(PushRequestError::UnknownPushModule) => {

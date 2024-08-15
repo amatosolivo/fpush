@@ -21,17 +21,15 @@ pub async fn handle_push_request(
         match push_module.send(token.to_string()).await {
             Ok(()) => {
                 info!(
-                    "{}: Send push message to token {}",
-                    push_module.identifier(),
-                    token
+                    "{}: Send push message OK",
+                    push_module.identifier()
                 );
                 Ok(())
             }
             Err(PushError::TokenBlocked) => {
                 info!(
-                    "{}: Received push request from blocked token {}",
-                    push_module.identifier(),
-                    token,
+                    "{}: Received push request from blocked",
+                    push_module.identifier()
                 );
                 push_module.blocklist().block_invalid_token(token);
                 Err(PushRequestError::TokenBlocked)
@@ -44,9 +42,8 @@ pub async fn handle_push_request(
             Err(PushError::PushEndpointPersistent) => Err(PushRequestError::Internal),
             Err(e) => {
                 warn!(
-                    "{}: Blocking token {} due to error: {}",
+                    "{}: Blocking token {}",
                     push_module.identifier(),
-                    token,
                     e
                 );
                 push_module
