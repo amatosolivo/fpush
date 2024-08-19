@@ -110,7 +110,7 @@ impl PushTrait for FpushApns {
         };
 
         let topic = if notification_type == "call" {
-            format!("{}.void", self.topic)
+            format!("{}.voip", self.topic)
         } else {
             self.topic.to_string()
         };
